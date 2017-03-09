@@ -55,23 +55,15 @@ class SPHARMWidget(ScriptedLoadableModuleWidget):
 
 
     # Global variables of the Interface
-    #     SegPostProcess: Parameters Area
     self.InputData = self.getWidget('InputDataLineEdit')
     self.applyButton = self.getWidget('applyButton')
 
     # Connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
-#    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-#    self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
 
-    # Refresh Apply button state
-    # self.onSelect()
 
   def cleanup(self):
     pass
-
-#   def onSelect(self):
-#    self.applyButton.enabled = self.inputSelector.currentNode() and self.outputSelector.currentNode()
 
     # Functions to recovery the widget in the .ui file
   def getWidget(self, objectName):
@@ -90,76 +82,59 @@ class SPHARMWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     self.callSegPostProcess()
     self.callGenParaMesh()
+    self.callParaToSPHARMMesh()
 
   def callSegPostProcess(self):
-    #     Creation of the command line
-    SegPostProcess = "/home/laura/Documents/SPHARM/SPHARM-PDM-build/SPHARM-PDM-build/SegPostProcessCLP"
-    arguments = list()
-    input = self.InputData.currentPath
-    arguments.append(input)
-    output = slicer.app.temporaryPath + "/outputPostProcess.gipl"
-    arguments.append(output)
-    # arguments.append("--label")
-    # arguments.append("1")
-    # arguments.append("--space")
-    # arguments.append("0.5,0.5,0.5")
-    #     Call the executable
-    process = qt.QProcess()
-    print "Calling " + os.path.basename(SegPostProcess)
-    # process.setStandardErrorFile(setStandardErrorFilelicer.app.temporaryPath + "/mylog.log", qt.QIODevice.Append)
-    # process.setStandardOutputFile(slicer.app.temporaryPath + "/mylogOutputFile.log", qt.QIODevice.Append)
-    process.start(SegPostProcess, arguments)
-    process.waitForStarted()
-    print "state: " + str(process.state())
-    process.waitForFinished()
-    print "error: " + str(process.error())
-    print "exitStatus: " + str(process.exitStatus())
+    #     Creation of the parameters
+    parameters = {}
+    slicer.util.loadLabelVolume(self.InputData.currentPath)
+    list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+    volume = list.GetItemAsObject(0)
+    parameters["fileName"] = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
+
+    output_node = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeNode())
+    output_node.SetName("output_PostProcess")
+    parameters["outfileName"] = output_node.GetID()
+
+    #     Call the CLI
+    print "Call: SegPostProcess"
+    SegPostProcess = slicer.modules.segpostprocessclp
+    slicer.cli.run(SegPostProcess, None, parameters, wait_for_completion=True)
+    slicer.util.saveNode(output_node, slicer.app.temporaryPath + "/outputPostProcess.gipl")
 
   def callGenParaMesh(self):
-    #     Creation of the command line
-    GenParaMesh = "/home/laura/Documents/SPHARM/SPHARM-PDM-build/SPHARM-PDM-build/GenParaMeshCLP"
-    arguments = list()
-    input = slicer.app.temporaryPath + "/outputPostProcess.gipl"
-    arguments.append(input)
-    output = slicer.app.temporaryPath + "/Parameterization.vtk"
-    arguments.append(output)
-    output = slicer.app.temporaryPath + "/SurfaceMesh.vtk"
-    arguments.append(output)
-    #     Call the executable
-    process = qt.QProcess()
-    print "Calling " + os.path.basename(GenParaMesh)
-    process.setStandardErrorFile(slicer.app.temporaryPath + "/mylog.log", qt.QIODevice.Append)
-    process.setStandardOutputFile(slicer.app.temporaryPath + "/mylogOutputFile.log", qt.QIODevice.Append)
-    process.start(GenParaMesh, arguments)
-    process.waitForStarted()
-    print "state: " + str(process.state())
-    process.waitForFinished()
-    print "error: " + str(process.error())
-    print "exitStatus: " + str(process.exitStatus())
+    #     Creation of the parameters
+    parameters = {}
+    parameters["infile"] = slicer.mrmlScene.GetNodesByName("output_PostProcess").GetItemAsObject(0)
+
+    output_para_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
+    output_para_model.SetName("output_para")
+    parameters["outParaName"] = output_para_model
+
+    output_surfmesh_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
+    output_surfmesh_model.SetName("output_surfmesh")
+    parameters["outSurfName"] = output_surfmesh_model
+
+    parameters["numIterations"] = "200"
+
+    #     Call the CLI
+    print "Call: GenParaMesh"
+    GenParaMesh = slicer.modules.genparameshclp
+    slicer.cli.run(GenParaMesh, None, parameters, wait_for_completion=True)
+    slicer.util.saveNode(output_para_model, slicer.app.temporaryPath + "/Parameterization.vtk")
+    slicer.util.saveNode(output_surfmesh_model, slicer.app.temporaryPath + "/SurfaceMesh.vtk")
 
   def callParaToSPHARMMesh(self):
-    #     Creation of the command line
-    ParaToSPHARMMesh = "/home/laura/Documents/SPHARM/SPHARM-PDM-build/SPHARM-PDM-build/ParaToSPHARMMeshCLP"
-    arguments = list()
-    input = slicer.app.temporaryPath + "/SurfaceMesh.vtk"
-    arguments.append(input)
-    input = slicer.app.temporaryPath + "/Parameterization.vtk"
-    arguments.append(input)
-    output = slicer.app.temporaryPath
-    arguments.append(output)
-    #     Call the executable
-    process = qt.QProcess()
-    print "Calling " + os.path.basename(ParaToSPHARMMesh)
-    # process.setStandardErrorFile(slicer.app.temporaryPath + "/mylog.log", qt.QIODevice.Append)
-    # process.setStandardOutputFile(slicer.app.temporaryPath + "/mylogOutputFile.log", qt.QIODevice.Append)
-    process.start(ParaToSPHARMMesh, arguments)
-    process.waitForStarted()
-    print "state: " + str(process.state())
-    process.waitForFinished()
-    print "error: " + str(process.error())
-    print "exitStatus: " + str(process.exitStatus())
-
-
+    #     Creation of the parameters
+    parameters = {}
+    # list = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+    parameters["inParaFile"] = slicer.mrmlScene.GetNodesByName("output_para").GetItemAsObject(0)
+    parameters["inSurfFile"] = slicer.mrmlScene.GetNodesByName("output_surfmesh").GetItemAsObject(0)
+    parameters["outbase"] = slicer.app.temporaryPath + "/OutputSPHARM/test"
+    #     Call the CLI
+    print "Call: ParaToSPHARMMesh"
+    ParaToSPHARMMesh = slicer.modules.paratospharmmeshclp
+    slicer.cli.run(ParaToSPHARMMesh, None, parameters, wait_for_completion=True)
 
 #
 # SPHARMLogic
@@ -195,28 +170,4 @@ class SPHARMTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.assertTrue(self.test_SPHARM1())
     self.delayDisplay(' Tests Passed! ')
-
-  def test_SPHARM1(self):
-    self.delayDisplay("Starting the test")
-    #     Creation of the command line
-    CLITest = "/home/laura/Documents/Slicer/Slicer-build/Slicer-build/lib/Slicer-4.7/cli-modules/GaussianBlurImageFilter"
-    arguments = list()
-    input = "/home/laura/Documents/Data/NRRD_Files/MRHead.nrrd"
-    arguments.append(input)
-    output = slicer.app.temporaryPath + "/MRHead_GaussianFilter.nrrd"
-    arguments.append(output)
-    #     Call the executable
-    process = qt.QProcess()
-    print "Calling " + os.path.basename(CLITest)
-    process.start(CLITest, arguments)
-    process.waitForStarted()
-    if process.state() == 2:
-      process.waitForFinished()
-      if process.exitStatus() == 0:
-        return True
-      else:
-        return False
-    else:
-      return False
