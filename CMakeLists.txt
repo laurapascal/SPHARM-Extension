@@ -19,7 +19,7 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
-add_subdirectory(SPHARM)
+add_subdirectory(ShapeAnalysisModule)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
