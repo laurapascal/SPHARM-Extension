@@ -170,6 +170,12 @@
       </item>
       <item row="2" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_sx">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Enforced spacing in x&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
         </property>
@@ -196,6 +202,12 @@
       </item>
       <item row="3" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_sy">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Enforced spacing in y&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
         </property>
@@ -222,6 +234,12 @@
       </item>
       <item row="4" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_sz">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Enforced spacing in z&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
         </property>
@@ -274,6 +292,9 @@
         <property name="enabled">
          <bool>false</bool>
         </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Value to first extract the label before processing&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="maximum">
          <double>100.000000000000000</double>
         </property>
@@ -320,6 +341,9 @@
       </item>
       <item row="1" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_NumberofIterations">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Number of Iterations&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="pageStep">
          <double>100.000000000000000</double>
         </property>
@@ -375,6 +399,9 @@
       </item>
       <item row="1" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_SubdivLevelValue">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Set the subdivision level for the icosahedron subdivision&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="maximum">
          <double>100.000000000000000</double>
         </property>
@@ -395,6 +422,9 @@
       </item>
       <item row="2" column="1">
        <widget class="ctkSliderWidget" name="SliderWidget_SPHARMDegreeValue">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Set the maximal degree for the SPHARM computation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="maximum">
          <double>100.000000000000000</double>
         </property>

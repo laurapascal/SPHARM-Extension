@@ -71,6 +71,9 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.sx = self.getWidget('SliderWidget_sx')
     self.sy = self.getWidget('SliderWidget_sy')
     self.sz = self.getWidget('SliderWidget_sz')
+    self.label_sx = self.getWidget('label_sx')
+    self.label_sy = self.getWidget('label_sy')
+    self.label_sz = self.getWidget('label_sz')
     self.LabelState = self.getWidget('checkBox_LabelState')
     self.label_ValueLabelNumber = self.getWidget('label_ValueLabelNumber')
     self.ValueLabelNumber = self.getWidget('SliderWidget_ValueLabelNumber')
@@ -91,6 +94,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     # Connections
     #   Group Project IO
     #   Post Processed Segmentation
+    self.RescaleSegPostProcess.connect('clicked(bool)', self.onSelectSpacing)
     self.LabelState.connect('clicked(bool)', self.onSelectValueLabelNumber)
     #   Generate Mesh Parameters
     #   Parameters to SPHARM Mesh
@@ -119,6 +123,14 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   #
   #   Post Processed Segmentation
   #
+  def onSelectSpacing(self):
+    self.label_sx.enabled = self.RescaleSegPostProcess.checkState()
+    self.label_sy.enabled = self.RescaleSegPostProcess.checkState()
+    self.label_sz.enabled = self.RescaleSegPostProcess.checkState()
+    self.sx.enabled = self.RescaleSegPostProcess.checkState()
+    self.sy.enabled = self.RescaleSegPostProcess.checkState()
+    self.sz.enabled = self.RescaleSegPostProcess.checkState()
+
   def onSelectValueLabelNumber(self):
     self.label_ValueLabelNumber.enabled = self.LabelState.checkState()
     self.ValueLabelNumber.enabled = self.LabelState.checkState()
@@ -128,7 +140,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   #
   def onApplyButton(self):
     self.pipeline.setup()
-    self.pipeline.runNextCLIModule()
+    self.pipeline.runCLIModules()
 
 #
 # ShapeAnalysisModuleLogic
@@ -162,7 +174,6 @@ class ShapeAnalysisModulePipeline():
     self.saveOutput = {}
 
   def setupModule(self, module, cli_parameters, cli_output, cli_path_output, saveOutput):
-
     self.slicerModule[self.ID] = module
     self.moduleParameters[self.ID] = cli_parameters
     self.output[self.ID] = cli_output
@@ -170,18 +181,19 @@ class ShapeAnalysisModulePipeline():
     self.saveOutput[self.ID] = saveOutput
 
   def setup(self):
-
     # SegPostProcess
     self.ID = 0
 
     cli_parameters = {}
-    inputList = list()
+    inputFilepathList = list()
+    inputBasenameList = list()
     inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
     for file in os.listdir(inputDirectory):
       if file.endswith(".gipl") or file.endswith(".gipl.gz"):
+        inputBasenameList.append(file)
         filepath = inputDirectory + '/' + file
-        inputList.append(filepath)
-    slicer.util.loadLabelVolume(inputList[0])
+        inputFilepathList.append(filepath)
+    slicer.util.loadLabelVolume(inputFilepathList[0])
     labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
     volume = labelMapVolumeNode_list.GetItemAsObject(0)
     cli_parameters["fileName"] = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
@@ -190,10 +202,24 @@ class ShapeAnalysisModulePipeline():
     output_node.SetName("output_PostProcess")
     cli_parameters["outfileName"] = output_node.GetID()
 
+    if self.interface.RescaleSegPostProcess.checkState():
+      cli_parameters["scaleOn"] = True
+    cli_parameters["spacing_vect"] = str(self.interface.sx.value) + "," + str(self.interface.sy.value) + "," + str(self.interface.sz.value)
+    cli_parameters["label"] = self.interface.ValueLabelNumber.value
+    if self.interface.Debug.checkState():
+      cli_parameters["debug"] = True
+
     cli_output = list()
     cli_output.append(output_node)
     cli_output_path = list()
-    cli_output_path.append(slicer.app.temporaryPath + "/outputPostProcess.gipl")
+    #    Creation of a folder in the output folder : PostProcess
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    pp_outputDirectory = outputDirectory + "/PostProcess"
+    if not os.path.exists(pp_outputDirectory):
+      os.makedirs(pp_outputDirectory)
+    #     Creation of the ouptut filepath for the post process
+    output_pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
+    cli_output_path.append( output_pp_filepath )
 
     self.setupModule(slicer.modules.segpostprocessclp, cli_parameters, cli_output, cli_output_path, True)
 
@@ -211,14 +237,25 @@ class ShapeAnalysisModulePipeline():
     output_surfmesh_model.SetName("output_surfmesh")
     cli_parameters["outSurfName"] = output_surfmesh_model
 
-    cli_parameters["numIterations"] = "50"
+    cli_parameters["numIterations"] = self.interface.NumberofIterations.value
+
+    if self.interface.Debug.checkState():
+      cli_parameters["debug"] = True
 
     cli_output = list()
     cli_output.append(output_para_model)
     cli_output.append(output_surfmesh_model)
     cli_output_path = list()
-    cli_output_path.append(slicer.app.temporaryPath + "/Parameterization.vtk")
-    cli_output_path.append(slicer.app.temporaryPath + "/SurfaceMesh.vtk")
+    #    Creation of a folder in the output folder : GenerateMeshParameters
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    genparamesh_outputDirectory = outputDirectory + "/GenerateMeshParameters"
+    if not os.path.exists(genparamesh_outputDirectory):
+      os.makedirs(genparamesh_outputDirectory)
+    #     Creation of the ouptut filepath for the post process
+    para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
+    surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
+    cli_output_path.append(para_output_filepath)
+    cli_output_path.append(surf_output_filepath)
 
     self.setupModule(slicer.modules.genparameshclp, cli_parameters, cli_output, cli_output_path, True)
 
@@ -231,15 +268,28 @@ class ShapeAnalysisModulePipeline():
 
     cli_parameters["inSurfFile"] = output_surfmesh_model
 
+    #    Creation of a folder in the output folder : SPHARMMesh
     outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
-    cli_parameters["outbase"] = outputDirectory + "/test"
+    SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
+    if not os.path.exists(SPHARMMesh_outputDirectory):
+      os.makedirs(SPHARMMesh_outputDirectory)
+    cli_parameters["outbase"] = SPHARMMesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0]
+
+    cli_parameters["subdivLevel"] = self.interface.SubdivLevelValue.value
+    cli_parameters["spharmDegree"] = self.interface.SPHARMDegreeValue.value
+    cli_parameters["thetaIteration"] = self.interface.thetaIterationValue.value
+    cli_parameters["phiIteration"] = self.interface.phiIterationValue.value
+    if self.interface.medialMesh.checkState():
+      cli_parameters["medialMesh"] = True
+    if self.interface.Debug.checkState():
+      cli_parameters["debug"] = True
 
     cli_output = list()
     cli_output_path = list()
 
     self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters, cli_output, cli_output_path, False)
 
-  def runCLIModule(self):
+  def runCLI(self):
     slicer.cli.run(self.slicerModule[self.ID], None, self.moduleParameters[self.ID], wait_for_completion=True)
 
   def saveOutputs(self):
@@ -248,10 +298,10 @@ class ShapeAnalysisModulePipeline():
     for i in range(0, len(cli_output)):
       slicer.util.saveNode(cli_output[i], cli_output_path[i])
 
-  def runNextCLIModule(self):
+  def runCLIModules(self):
     for i in range(0, 3):
       self.ID = i
-      self.runCLIModule()
+      self.runCLI()
       if self.saveOutput[self.ID]:
         self.saveOutputs()
 
