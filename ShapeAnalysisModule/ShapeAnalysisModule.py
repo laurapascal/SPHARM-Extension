@@ -87,6 +87,22 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.thetaIterationValue = self.getWidget('spinBox_thetaIterationValue')
     self.phiIterationValue = self.getWidget('spinBox_phiIterationValue')
     self.medialMesh = self.getWidget('checkBox_medialMesh')
+    #   Advanced Post Processed Segmentation
+    self.GaussianFiltering = self.getWidget('checkBox_GaussianFiltering')
+    self.label_VarianceX = self.getWidget('label_VarianceX')
+    self.VarianceX = self.getWidget('SliderWidget_VarianceX')
+    self.label_VarianceY = self.getWidget('label_VarianceY')
+    self.VarianceY = self.getWidget('SliderWidget_VarianceY')
+    self.label_VarianceZ = self.getWidget('label_VarianceZ')
+    self.VarianceZ = self.getWidget('SliderWidget_VarianceZ')
+    #   Advanced Parameters to SPHARM Mesh
+    self.useRegTemplate = self.getWidget('checkBox_useRegTemplate')
+    self.regTemplate = self.getWidget('PathLineEdit_regTemplate')
+    self.useFlipTemplate = self.getWidget('checkBox_useFlipTemplate')
+    self.flipTemplate = self.getWidget('PathLineEdit_flipTemplate')
+    self.MTemplate = self.getWidget('checkBox_MTemplate')
+    self.ParaOut1Template = self.getWidget('checkBox_ParaOut1Template')
+    self.choiceOfFlip = self.getWidget('comboBox_choiceOfFlip')
     #   Visualization
     #   Apply CLIs
     self.applyButton = self.getWidget('applyButton')
@@ -98,6 +114,9 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.LabelState.connect('clicked(bool)', self.onSelectValueLabelNumber)
     #   Generate Mesh Parameters
     #   Parameters to SPHARM Mesh
+    #   Advanced Post Processed Segmentation
+    self.GaussianFiltering.connect('clicked(bool)', self.onSelectGaussianVariance)
+    #   Advanced Parameters to SPHARM Mesh
     #   Visualization
     #   Apply CLIs
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -134,6 +153,17 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   def onSelectValueLabelNumber(self):
     self.label_ValueLabelNumber.enabled = self.LabelState.checkState()
     self.ValueLabelNumber.enabled = self.LabelState.checkState()
+
+  #
+  #   Advanced Post Processed Segmentation
+  #
+  def onSelectGaussianVariance(self):
+    self.label_VarianceX.enabled = self.GaussianFiltering.checkState()
+    self.VarianceX.enabled = self.GaussianFiltering.checkState()
+    self.label_VarianceY.enabled= self.GaussianFiltering.checkState()
+    self.VarianceY.enabled = self.GaussianFiltering.checkState()
+    self.label_VarianceZ.enabled = self.GaussianFiltering.checkState()
+    self.VarianceZ.enabled = self.GaussianFiltering.checkState()
 
   #
   #   Apply CLIs
@@ -243,10 +273,15 @@ class ShapeAnalysisModulePipeline():
 
       if self.interface.RescaleSegPostProcess.checkState():
         cli_parameters["scaleOn"] = True
-      cli_parameters["spacing_vect"] = str(self.interface.sx.value) + "," + str(self.interface.sy.value) + "," + str(self.interface.sz.value)
+        cli_parameters["spacing_vect"] = str(self.interface.sx.value) + "," + str(self.interface.sy.value) + "," + str(self.interface.sz.value)
       cli_parameters["label"] = self.interface.ValueLabelNumber.value
       if self.interface.Debug.checkState():
         cli_parameters["debug"] = True
+
+      # Advanced parameters
+      if self.interface.GaussianFiltering.checkState():
+        cli_parameters["gaussianOn"] = True
+        cli_parameters["variance_vect"] = str(self.interface.VarianceX.value) + "," + str(self.interface.VarianceY.value) + "," + str(self.interface.VarianceZ.value)
 
       cli_output = list()
       cli_output.append(output_node)
@@ -334,6 +369,18 @@ class ShapeAnalysisModulePipeline():
         cli_parameters["medialMesh"] = True
       if self.interface.Debug.checkState():
         cli_parameters["debug"] = True
+
+      # Advanced parameters
+      cli_parameters["finalFlipIndex"] = self.interface.choiceOfFlip.currentIndex # 1 = flip along axes of x &amp; y,
+                                                                                  # 2 = flip along y &amp; z,
+                                                                                  # 3 = flip along x &amp; z
+                                                                                  # 4 = flip along x,
+                                                                                  # 5 = flip along y,
+                                                                                  # 6 = flip along x &amp; y &amp; z,
+                                                                                  # 7 = flip along z  where y is the smallest, x is the second smallest and z is the long axis of the ellipsoid
+
+
+
 
       cli_output = list()
       cli_outputFilepath = list()
