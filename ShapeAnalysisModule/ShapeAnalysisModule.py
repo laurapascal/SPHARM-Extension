@@ -141,6 +141,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     self.pipeline.setup()
     self.pipeline.runCLIModules()
+    print " End of pgm! "
 
 #
 # ShapeAnalysisModuleLogic
@@ -165,142 +166,193 @@ class ShapeAnalysisModulePipeline():
   def __init__(self, interface):
     self.interface = interface
 
+  def setupGlobalVariables(self):
     # Modules
     self.ID = -1
-    self.slicerModule = {}  # queue of the modules
+    self.slicerModule = {}
     self.moduleParameters = {}
     self.output = {}
-    self.output_path = {}
+    self.outputFilepath = {}
     self.saveOutput = {}
 
-  def setupModule(self, module, cli_parameters, cli_output, cli_path_output, saveOutput):
+  def setupModule(self, module, cli_parameters, cli_output, cli_outputFilepath, cli_saveOutput):
     self.slicerModule[self.ID] = module
     self.moduleParameters[self.ID] = cli_parameters
     self.output[self.ID] = cli_output
-    self.output_path[self.ID] = cli_path_output
-    self.saveOutput[self.ID] = saveOutput
+    self.outputFilepath[self.ID] = cli_outputFilepath
+    self.saveOutput[self.ID] = cli_saveOutput
+
+  # Check if the CLI SegPostProcress need to be called
+  def callSegPostProcess(self, inputBasenameList):
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    if not self.interface.OverwriteSegPostProcess.checkState():
+      pp_outputDirectory = outputDirectory + "/PostProcess"
+      pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
+      if os.path.exists(pp_filepath):
+        return False
+    return True
+
+  # Check if the CLI GenParaMesh need to be called
+  def callGenParaMesh(self, inputBasenameList):
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    if not self.interface.OverwriteGenParaMesh.checkState():
+      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
+      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
+      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
+      if os.path.exists(para_output_filepath) and os.path.exists(surf_output_filepath):
+        return False
+    return True
+
+  # Check if the CLI ParaToSPHARMMesh need to be called
+  def callParaToSPHARMMesh(self):
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    if not self.interface.OverwriteParaToSPHARMMesh.checkState():
+      SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
+      if os.path.exists(SPHARMMesh_outputDirectory):
+        if os.listdir(SPHARMMesh_outputDirectory):
+          return False
+    return True
 
   def setup(self):
-    # SegPostProcess
-    self.ID = 0
+    # Initialization of global variables
+    self.setupGlobalVariables()
 
-    cli_parameters = {}
-    inputFilepathList = list()
-    inputBasenameList = list()
+    # Group Project IO
     inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
+    inputBasenameList = list()
     for file in os.listdir(inputDirectory):
       if file.endswith(".gipl") or file.endswith(".gipl.gz"):
         inputBasenameList.append(file)
-        filepath = inputDirectory + '/' + file
-        inputFilepathList.append(filepath)
-    slicer.util.loadLabelVolume(inputFilepathList[0])
-    labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
-    volume = labelMapVolumeNode_list.GetItemAsObject(0)
-    cli_parameters["fileName"] = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
 
-    output_node = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeNode())
-    output_node.SetName("output_PostProcess")
-    cli_parameters["outfileName"] = output_node.GetID()
-
-    if self.interface.RescaleSegPostProcess.checkState():
-      cli_parameters["scaleOn"] = True
-    cli_parameters["spacing_vect"] = str(self.interface.sx.value) + "," + str(self.interface.sy.value) + "," + str(self.interface.sz.value)
-    cli_parameters["label"] = self.interface.ValueLabelNumber.value
-    if self.interface.Debug.checkState():
-      cli_parameters["debug"] = True
-
-    cli_output = list()
-    cli_output.append(output_node)
-    cli_output_path = list()
-    #    Creation of a folder in the output folder : PostProcess
     outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
-    pp_outputDirectory = outputDirectory + "/PostProcess"
-    if not os.path.exists(pp_outputDirectory):
-      os.makedirs(pp_outputDirectory)
-    #     Creation of the ouptut filepath for the post process
-    output_pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
-    cli_output_path.append( output_pp_filepath )
 
-    self.setupModule(slicer.modules.segpostprocessclp, cli_parameters, cli_output, cli_output_path, True)
+    # Post Processed Segmentation
+    if self.callSegPostProcess(inputBasenameList):
+      self.ID = +1
 
-    # GenParaMesh
-    self.ID += 1
+      cli_parameters = {}
+      inputFilepath = inputDirectory + '/' + inputBasenameList[0]
+      slicer.util.loadLabelVolume(inputFilepath)
+      labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+      volume = labelMapVolumeNode_list.GetItemAsObject(0)
+      cli_parameters["fileName"] = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
 
-    cli_parameters = {}
-    cli_parameters["infile"] = output_node
+      output_node = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeNode())
+      output_node.SetName("output_PostProcess")
+      cli_parameters["outfileName"] = output_node.GetID()
 
-    output_para_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
-    output_para_model.SetName("output_para")
-    cli_parameters["outParaName"] = output_para_model
+      if self.interface.RescaleSegPostProcess.checkState():
+        cli_parameters["scaleOn"] = True
+      cli_parameters["spacing_vect"] = str(self.interface.sx.value) + "," + str(self.interface.sy.value) + "," + str(self.interface.sz.value)
+      cli_parameters["label"] = self.interface.ValueLabelNumber.value
+      if self.interface.Debug.checkState():
+        cli_parameters["debug"] = True
 
-    output_surfmesh_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
-    output_surfmesh_model.SetName("output_surfmesh")
-    cli_parameters["outSurfName"] = output_surfmesh_model
+      cli_output = list()
+      cli_output.append(output_node)
+      cli_outputFilepath = list()
+      #    Creation of a folder in the output folder : PostProcess
+      pp_outputDirectory = outputDirectory + "/PostProcess"
+      if not os.path.exists(pp_outputDirectory):
+        os.makedirs(pp_outputDirectory)
+      #     Creation of the ouptut filepath for the post process
+      output_pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
+      cli_outputFilepath.append( output_pp_filepath )
 
-    cli_parameters["numIterations"] = self.interface.NumberofIterations.value
+      self.setupModule(slicer.modules.segpostprocessclp, cli_parameters, cli_output, cli_outputFilepath, True)
+    else:
+      output_pp_filepath = outputDirectory + "/PostProcess/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
+      if os.path.exists(output_pp_filepath):
+        slicer.util.loadLabelVolume(output_pp_filepath)
+        labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+        volume = labelMapVolumeNode_list.GetItemAsObject(0)
+        output_node = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
 
-    if self.interface.Debug.checkState():
-      cli_parameters["debug"] = True
+    # Generate Mesh Parameters
+    if self.callGenParaMesh(inputBasenameList):
+      self.ID += 1
 
-    cli_output = list()
-    cli_output.append(output_para_model)
-    cli_output.append(output_surfmesh_model)
-    cli_output_path = list()
-    #    Creation of a folder in the output folder : GenerateMeshParameters
-    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
-    genparamesh_outputDirectory = outputDirectory + "/GenerateMeshParameters"
-    if not os.path.exists(genparamesh_outputDirectory):
-      os.makedirs(genparamesh_outputDirectory)
-    #     Creation of the ouptut filepath for the post process
-    para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
-    surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
-    cli_output_path.append(para_output_filepath)
-    cli_output_path.append(surf_output_filepath)
+      cli_parameters = {}
+      cli_parameters["infile"] = output_node
 
-    self.setupModule(slicer.modules.genparameshclp, cli_parameters, cli_output, cli_output_path, True)
+      output_para_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
+      output_para_model.SetName("output_para")
+      cli_parameters["outParaName"] = output_para_model
 
-    # ParaToSPHARMMesh
-    self.ID += 1
+      output_surfmesh_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
+      output_surfmesh_model.SetName("output_surfmesh")
+      cli_parameters["outSurfName"] = output_surfmesh_model
 
-    cli_parameters = {}
+      cli_parameters["numIterations"] = 15 #self.interface.NumberofIterations.value
+      if self.interface.Debug.checkState():
+        cli_parameters["debug"] = True
 
-    cli_parameters["inParaFile"] = output_para_model
+      cli_output = list()
+      cli_output.append(output_para_model)
+      cli_output.append(output_surfmesh_model)
+      cli_outputFilepath = list()
+      #    Creation of a folder in the output folder : GenerateMeshParameters
+      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
+      if not os.path.exists(genparamesh_outputDirectory):
+        os.makedirs(genparamesh_outputDirectory)
+      #     Creation of the ouptut filepath for the post process
+      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
+      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
+      cli_outputFilepath.append(para_output_filepath)
+      cli_outputFilepath.append(surf_output_filepath)
 
-    cli_parameters["inSurfFile"] = output_surfmesh_model
+      self.setupModule(slicer.modules.genparameshclp, cli_parameters, cli_output, cli_outputFilepath, True)
 
-    #    Creation of a folder in the output folder : SPHARMMesh
-    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
-    SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
-    if not os.path.exists(SPHARMMesh_outputDirectory):
-      os.makedirs(SPHARMMesh_outputDirectory)
-    cli_parameters["outbase"] = SPHARMMesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0]
+    else:
+      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
+      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
+      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
+      output_para_model = slicer.util.loadModel(para_output_filepath, True)[1]
+      output_surfmesh_model = slicer.util.loadModel(surf_output_filepath, True)[1]
 
-    cli_parameters["subdivLevel"] = self.interface.SubdivLevelValue.value
-    cli_parameters["spharmDegree"] = self.interface.SPHARMDegreeValue.value
-    cli_parameters["thetaIteration"] = self.interface.thetaIterationValue.value
-    cli_parameters["phiIteration"] = self.interface.phiIterationValue.value
-    if self.interface.medialMesh.checkState():
-      cli_parameters["medialMesh"] = True
-    if self.interface.Debug.checkState():
-      cli_parameters["debug"] = True
+    # Parameters to SPHARM Mesh
+    if self.callParaToSPHARMMesh():
+      self.ID += 1
 
-    cli_output = list()
-    cli_output_path = list()
+      cli_parameters = {}
 
-    self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters, cli_output, cli_output_path, False)
+      cli_parameters["inParaFile"] = output_para_model
+
+      cli_parameters["inSurfFile"] = output_surfmesh_model
+
+      #    Creation of a folder in the output folder : SPHARMMesh
+      SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
+      if not os.path.exists(SPHARMMesh_outputDirectory):
+        os.makedirs(SPHARMMesh_outputDirectory)
+      cli_parameters["outbase"] = SPHARMMesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0]
+
+      cli_parameters["subdivLevel"] = self.interface.SubdivLevelValue.value
+      cli_parameters["spharmDegree"] = self.interface.SPHARMDegreeValue.value
+      cli_parameters["thetaIteration"] = self.interface.thetaIterationValue.value
+      cli_parameters["phiIteration"] = self.interface.phiIterationValue.value
+      if self.interface.medialMesh.checkState():
+        cli_parameters["medialMesh"] = True
+      if self.interface.Debug.checkState():
+        cli_parameters["debug"] = True
+
+      cli_output = list()
+      cli_outputFilepath = list()
+
+      self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters, cli_output, cli_outputFilepath, False)
 
   def runCLI(self):
+    print "Call of the CLI: " + self.slicerModule[self.ID].name
     slicer.cli.run(self.slicerModule[self.ID], None, self.moduleParameters[self.ID], wait_for_completion=True)
 
   def saveOutputs(self):
     cli_output = self.output[self.ID]
-    cli_output_path = self.output_path[self.ID]
+    cli_outputFilepath = self.outputFilepath[self.ID]
     for i in range(0, len(cli_output)):
-      slicer.util.saveNode(cli_output[i], cli_output_path[i])
+      slicer.util.saveNode(cli_output[i], cli_outputFilepath[i])
 
   def runCLIModules(self):
-    for i in range(0, 3):
-      self.ID = i
+    for ID in self.slicerModule.keys():
+      self.ID = ID
       self.runCLI()
       if self.saveOutput[self.ID]:
         self.saveOutputs()
