@@ -52,17 +52,7 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
-       <widget class="QLabel" name="label_RandomizeInputs">
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Randomize input files&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>Randomize Inputs</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="0">
+      <item row="9" column="0">
        <widget class="QLabel" name="label_GroupProjectOutputDirectory">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Output Directory&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -72,14 +62,14 @@
         </property>
        </widget>
       </item>
-      <item row="10" column="1">
+      <item row="9" column="1">
        <widget class="ctkDirectoryButton" name="DirectoryButton_GroupProjectOutputDirectory">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Output Directory&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
-      <item row="11" column="0">
+      <item row="10" column="0">
        <widget class="QLabel" name="label_Debug">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Verbose mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -89,20 +79,10 @@
         </property>
        </widget>
       </item>
-      <item row="11" column="1">
+      <item row="10" column="1">
        <widget class="QCheckBox" name="checkBox_Debug">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Verbose mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="1">
-       <widget class="QCheckBox" name="checkBox_RandomizeInputs">
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Randomize input files&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string/>

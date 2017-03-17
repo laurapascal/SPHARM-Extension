@@ -62,7 +62,6 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     # Global variables of the Interface
     #   Group Project IO
     self.GroupProjectInputDirectory = self.getWidget('DirectoryButton_GroupProjectInputDirectory')
-    self.RandomizeInputs = self.getWidget('checkBox_RandomizeInputs')
     self.GroupProjectOutputDirectory = self.getWidget('DirectoryButton_GroupProjectOutputDirectory')
     self.Debug = self.getWidget('checkBox_Debug')
     #   Post Processed Segmentation
@@ -378,9 +377,6 @@ class ShapeAnalysisModulePipeline():
                                                                                   # 5 = flip along y,
                                                                                   # 6 = flip along x &amp; y &amp; z,
                                                                                   # 7 = flip along z  where y is the smallest, x is the second smallest and z is the long axis of the ellipsoid
-
-
-
 
       cli_output = list()
       cli_outputFilepath = list()
