@@ -42,7 +42,6 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     #   Global variables
     #
     self.logic = ShapeAnalysisModuleLogic(self)
-    self.pipeline = ShapeAnalysisModulePipeline(self)
 
     #
     #  Interface
@@ -168,8 +167,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   #   Apply CLIs
   #
   def onApplyButton(self):
-    self.pipeline.setup()
-    self.pipeline.runCLIModules()
+    self.logic.ShapeAnalysisCases()
     print " End of pgm! "
 
 #
@@ -187,13 +185,87 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
   """
   def __init__(self, interface):
     self.interface = interface
+    self.pipeline = {}
+
+  def startShapeAnalysisModulePipeline(self, id):
+    self.pipeline[id].setup()
+    self.pipeline[id].runCLIModules()
+
+  def ShapeAnalysisCases(self):
+    # Search cases
+    inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
+    inputBasenameList = list()
+    for file in os.listdir(inputDirectory):
+      if file.endswith(".gipl") or file.endswith(".gipl.gz"):
+        inputBasenameList.append(file)
+
+    # No cases
+    if not len(inputBasenameList) > 0:
+      slicer.util.errorDisplay("No cases found in " + inputDirectory)
+      return -1
+
+    # Create pipelines
+    else:
+      # Init
+      for i in range(len(inputBasenameList)):
+        self.pipeline[i] = ShapeAnalysisModulePipeline(i, inputBasenameList[i], self.interface)
+
+      # Launch workflow
+      for i in range(len(inputBasenameList)):
+        self.startShapeAnalysisModulePipeline(i)
+      return 0
+
+#
+# ShapeAnalysisModuleMRMLUtility
+#
+'''
+This class harbors all the utility functions to load, add, save and remove mrml nodes
+'''
+
+class ShapeAnalysisModuleMRMLUtility(object):
+
+  @staticmethod
+  def loadMRMLNode(file_path, file_type ):
+    properties = {}
+    if file_type == 'LabelMapVolumeFile':
+      file_type = 'VolumeFile'
+      properties['labelmap'] = True
+    node = slicer.util.loadNodeFromFile(file_path, file_type, properties, returnNode=True)
+    node = node[1]
+    return node
+
+  @staticmethod
+  def addnewMRMLNode(node_name, node_type):
+    node = slicer.mrmlScene.AddNode(node_type)
+    node.SetName(node_name)
+    return node
+
+
+  @staticmethod
+  def saveMRMLNode(node, filepath):
+    slicer.util.saveNode(node, filepath)
+
+  @staticmethod
+  def removeMRMLNode(node):
+    slicer.mrmlScene.RemoveNode(node)
+
+#
+# ShapeAnalysisModuleNode
+#
+class ShapeAnalysisModuleNode(object):
+  nodes = [None]
+  save = [False]
+  delete = [True]
+  filepaths = [" "]
 
 #
 # ShapeAnalysisModulePipeline
 #
 class ShapeAnalysisModulePipeline():
-  def __init__(self, interface):
+  def __init__(self, pipeline_id, inputBasename, interface):
+    self.pipeline_id = pipeline_id
     self.interface = interface
+    self.inputBasename = inputBasename
 
   def setupGlobalVariables(self):
     # Modules
@@ -204,41 +276,39 @@ class ShapeAnalysisModulePipeline():
     self.outputFilepath = {}
     self.saveOutput = {}
 
-  def setupModule(self, module, cli_parameters, cli_output, cli_outputFilepath, cli_saveOutput):
+    # Nodes
+    self.nodeDictionary = {}
+
+  def setupModule(self, module, cli_parameters):
     self.slicerModule[self.ID] = module
     self.moduleParameters[self.ID] = cli_parameters
-    self.output[self.ID] = cli_output
-    self.outputFilepath[self.ID] = cli_outputFilepath
-    self.saveOutput[self.ID] = cli_saveOutput
 
-  # Check if the CLI SegPostProcress need to be called
-  def callSegPostProcess(self, inputBasenameList):
-    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+  def setupNode(self, cli_nodes, cli_filepaths, cli_saveOutput, cli_deleteOutput):
+    self.nodeDictionary[self.ID] = ShapeAnalysisModuleNode()
+    self.nodeDictionary[self.ID].nodes = cli_nodes
+    self.nodeDictionary[self.ID].filepaths = cli_filepaths
+    self.nodeDictionary[self.ID].save = cli_saveOutput
+    self.nodeDictionary[self.ID].delete = cli_deleteOutput
+
+  # Check if the CLI SegPostProcess need to be called
+  def callSegPostProcess(self, PostProcessOutputFilepath):
     if not self.interface.OverwriteSegPostProcess.checkState():
-      pp_outputDirectory = outputDirectory + "/PostProcess"
-      pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
-      if os.path.exists(pp_filepath):
+      if os.path.exists(PostProcessOutputFilepath):
         return False
     return True
 
   # Check if the CLI GenParaMesh need to be called
-  def callGenParaMesh(self, inputBasenameList):
-    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+  def callGenParaMesh(self, ParaOutputFilepath, SurfOutputFilepath):
     if not self.interface.OverwriteGenParaMesh.checkState():
-      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
-      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
-      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
-      if os.path.exists(para_output_filepath) and os.path.exists(surf_output_filepath):
+      if os.path.exists(ParaOutputFilepath) and os.path.exists(SurfOutputFilepath):
         return False
     return True
 
   # Check if the CLI ParaToSPHARMMesh need to be called
-  def callParaToSPHARMMesh(self):
-    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+  def callParaToSPHARMMesh(self, SPHARMMeshOutputDirectory):
     if not self.interface.OverwriteParaToSPHARMMesh.checkState():
-      SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
-      if os.path.exists(SPHARMMesh_outputDirectory):
-        if os.listdir(SPHARMMesh_outputDirectory):
+      if os.path.exists(SPHARMMeshOutputDirectory):
+        if os.listdir(SPHARMMeshOutputDirectory):
           return False
     return True
 
@@ -246,29 +316,28 @@ class ShapeAnalysisModulePipeline():
     # Initialization of global variables
     self.setupGlobalVariables()
 
-    # Group Project IO
     inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
-    inputBasenameList = list()
-    for file in os.listdir(inputDirectory):
-      if file.endswith(".gipl") or file.endswith(".gipl.gz"):
-        inputBasenameList.append(file)
-
     outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
 
-    # Post Processed Segmentation
-    if self.callSegPostProcess(inputBasenameList):
+    ## Post Processed Segmentation
+    cli_nodes = list() # list of the nodes used in the Post Processed Segmentation step
+
+    cli_filepaths = list() # list of the node filepaths used in the Post Processed Segmentation step
+    PostProcessDirectory = outputDirectory + "/PostProcess"
+    PostProcessOutputFilepath = PostProcessDirectory + "/" + os.path.splitext(self.inputBasename)[0] + "_pp.gipl"
+
+    if self.callSegPostProcess(PostProcessOutputFilepath):
+      # Setup of the parameters od the CLI
       self.ID = +1
 
       cli_parameters = {}
-      inputFilepath = inputDirectory + '/' + inputBasenameList[0]
-      slicer.util.loadLabelVolume(inputFilepath)
-      labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
-      volume = labelMapVolumeNode_list.GetItemAsObject(0)
-      cli_parameters["fileName"] = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
+      inputFilepath = inputDirectory + '/' + self.inputBasename
 
-      output_node = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeNode())
-      output_node.SetName("output_PostProcess")
-      cli_parameters["outfileName"] = output_node.GetID()
+      input_node = ShapeAnalysisModuleMRMLUtility.loadMRMLNode(inputFilepath, 'LabelMapVolumeFile')
+      cli_parameters["fileName"] = input_node
+
+      pp_output_node = ShapeAnalysisModuleMRMLUtility.addnewMRMLNode("output_PostProcess", slicer.vtkMRMLLabelMapVolumeNode())
+      cli_parameters["outfileName"] = pp_output_node.GetID()
 
       if self.interface.RescaleSegPostProcess.checkState():
         cli_parameters["scaleOn"] = True
@@ -277,88 +346,109 @@ class ShapeAnalysisModulePipeline():
       if self.interface.Debug.checkState():
         cli_parameters["debug"] = True
 
-      # Advanced parameters
+      #    Advanced parameters
       if self.interface.GaussianFiltering.checkState():
         cli_parameters["gaussianOn"] = True
         cli_parameters["variance_vect"] = str(self.interface.VarianceX.value) + "," + str(self.interface.VarianceY.value) + "," + str(self.interface.VarianceZ.value)
 
-      cli_output = list()
-      cli_output.append(output_node)
-      cli_outputFilepath = list()
+      self.setupModule(slicer.modules.segpostprocessclp, cli_parameters)
+
+      # Setup of the nodes created by the CLI
       #    Creation of a folder in the output folder : PostProcess
-      pp_outputDirectory = outputDirectory + "/PostProcess"
-      if not os.path.exists(pp_outputDirectory):
-        os.makedirs(pp_outputDirectory)
-      #     Creation of the ouptut filepath for the post process
-      output_pp_filepath = pp_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
-      cli_outputFilepath.append( output_pp_filepath )
+      if not os.path.exists(PostProcessDirectory):
+        os.makedirs(PostProcessDirectory)
 
-      self.setupModule(slicer.modules.segpostprocessclp, cli_parameters, cli_output, cli_outputFilepath, True)
+      cli_nodes.append(input_node)
+      cli_nodes.append(pp_output_node)
+      cli_filepaths.append(inputFilepath)
+      cli_filepaths.append(PostProcessOutputFilepath)
+
+      self.setupNode(cli_nodes, cli_filepaths, [False,True], [True,True])
+
     else:
-      output_pp_filepath = outputDirectory + "/PostProcess/" + os.path.splitext(inputBasenameList[0])[0] + "_pp.gipl"
-      if os.path.exists(output_pp_filepath):
-        slicer.util.loadLabelVolume(output_pp_filepath)
-        labelMapVolumeNode_list = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
-        volume = labelMapVolumeNode_list.GetItemAsObject(0)
-        output_node = slicer.mrmlScene.GetNodesByName(volume.GetName()).GetItemAsObject(0)
+      # Setup of the nodes which will be use by the next CLI
+      pp_output_node = ShapeAnalysisModuleMRMLUtility.loadMRMLNode(PostProcessOutputFilepath, 'LabelMapVolumeFile')
 
-    # Generate Mesh Parameters
-    if self.callGenParaMesh(inputBasenameList):
+      cli_filepaths.append(PostProcessOutputFilepath)
+      cli_nodes.append(pp_output_node)
+
+      self.setupNode(cli_nodes, cli_filepaths, [False], [True])
+
+
+    ## Generate Mesh Parameters
+    cli_nodes = list() # list of the nodes used in the Generate Mesh Parameters step
+
+    cli_filepaths = list() # list of the node filepaths used in the Generate Mesh Parameters step
+    GenParaMeshOutputDirectory = outputDirectory + "/MeshParameters"
+    ParaOutputFilepath = GenParaMeshOutputDirectory + "/" + os.path.splitext(self.inputBasename)[0] + "_para.vtk"
+    SurfOutputFilepath = GenParaMeshOutputDirectory + "/" + os.path.splitext(self.inputBasename)[0] + "_surf.vtk"
+
+    if self.callGenParaMesh(ParaOutputFilepath, SurfOutputFilepath):
+      # Setup of the parameters od the CLI
+
       self.ID += 1
 
       cli_parameters = {}
-      cli_parameters["infile"] = output_node
+      cli_parameters["infile"] = pp_output_node
 
-      output_para_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
-      output_para_model.SetName("output_para")
-      cli_parameters["outParaName"] = output_para_model
+      para_output_model = ShapeAnalysisModuleMRMLUtility.addnewMRMLNode("output_para", slicer.vtkMRMLModelNode())
+      cli_parameters["outParaName"] = para_output_model
 
-      output_surfmesh_model = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
-      output_surfmesh_model.SetName("output_surfmesh")
-      cli_parameters["outSurfName"] = output_surfmesh_model
+
+      surfmesh_output_model = ShapeAnalysisModuleMRMLUtility.addnewMRMLNode("output_surfmesh", slicer.vtkMRMLModelNode())
+      cli_parameters["outSurfName"] = surfmesh_output_model
 
       cli_parameters["numIterations"] = 15 #self.interface.NumberofIterations.value
       if self.interface.Debug.checkState():
         cli_parameters["debug"] = True
 
-      cli_output = list()
-      cli_output.append(output_para_model)
-      cli_output.append(output_surfmesh_model)
-      cli_outputFilepath = list()
-      #    Creation of a folder in the output folder : GenerateMeshParameters
-      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
-      if not os.path.exists(genparamesh_outputDirectory):
-        os.makedirs(genparamesh_outputDirectory)
-      #     Creation of the ouptut filepath for the post process
-      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
-      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
-      cli_outputFilepath.append(para_output_filepath)
-      cli_outputFilepath.append(surf_output_filepath)
+      self.setupModule(slicer.modules.genparameshclp, cli_parameters)
 
-      self.setupModule(slicer.modules.genparameshclp, cli_parameters, cli_output, cli_outputFilepath, True)
+
+      # Setup of the nodes created by the CLI
+      #    Creation of a folder in the output folder : GenerateMeshParameters
+      if not os.path.exists(GenParaMeshOutputDirectory):
+        os.makedirs(GenParaMeshOutputDirectory)
+
+      cli_nodes.append(para_output_model)
+      cli_nodes.append(surfmesh_output_model)
+      cli_filepaths.append(ParaOutputFilepath)
+      cli_filepaths.append(SurfOutputFilepath)
+
+      self.setupNode(cli_nodes, cli_filepaths, [True,True], [True,True])
+
 
     else:
-      genparamesh_outputDirectory = outputDirectory + "/MeshParameters"
-      para_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_para.vtk"
-      surf_output_filepath = genparamesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0] + "_surf.vtk"
-      output_para_model = slicer.util.loadModel(para_output_filepath, True)[1]
-      output_surfmesh_model = slicer.util.loadModel(surf_output_filepath, True)[1]
+      # Setup of the nodes which will be use by the next CLI
+      para_output_model = ShapeAnalysisModuleMRMLUtility.loadMRMLNode(ParaOutputFilepath, 'ModelFile')
+      surfmesh_output_model = ShapeAnalysisModuleMRMLUtility.loadMRMLNode(SurfOutputFilepath, 'ModelFile')
 
-    # Parameters to SPHARM Mesh
-    if self.callParaToSPHARMMesh():
+      cli_nodes.append(para_output_model)
+      cli_nodes.append(surfmesh_output_model)
+      cli_filepaths.append(ParaOutputFilepath)
+      cli_filepaths.append(SurfOutputFilepath)
+
+      self.setupNode(cli_nodes, cli_filepaths, [False, False], [True, True])
+
+
+    ##  Parameters to SPHARM Mesh
+    SPHARMMeshOutputDirectory = outputDirectory + "/SPHARMMesh"
+
+    if self.callParaToSPHARMMesh(SPHARMMeshOutputDirectory):
+
+      # Setup of the parameters od the CLI
       self.ID += 1
 
       cli_parameters = {}
 
-      cli_parameters["inParaFile"] = output_para_model
+      cli_parameters["inParaFile"] = para_output_model
 
-      cli_parameters["inSurfFile"] = output_surfmesh_model
+      cli_parameters["inSurfFile"] = surfmesh_output_model
 
       #    Creation of a folder in the output folder : SPHARMMesh
-      SPHARMMesh_outputDirectory = outputDirectory + "/SPHARMMesh"
-      if not os.path.exists(SPHARMMesh_outputDirectory):
-        os.makedirs(SPHARMMesh_outputDirectory)
-      cli_parameters["outbase"] = SPHARMMesh_outputDirectory + "/" + os.path.splitext(inputBasenameList[0])[0]
+      if not os.path.exists(SPHARMMeshOutputDirectory):
+        os.makedirs(SPHARMMeshOutputDirectory)
+      cli_parameters["outbase"] = SPHARMMeshOutputDirectory + "/" + os.path.splitext(self.inputBasename)[0]
 
       cli_parameters["subdivLevel"] = self.interface.SubdivLevelValue.value
       cli_parameters["spharmDegree"] = self.interface.SPHARMDegreeValue.value
@@ -369,7 +459,7 @@ class ShapeAnalysisModulePipeline():
       if self.interface.Debug.checkState():
         cli_parameters["debug"] = True
 
-      # Advanced parameters
+      #   Advanced parameters
       cli_parameters["finalFlipIndex"] = self.interface.choiceOfFlip.currentIndex # 1 = flip along axes of x &amp; y,
                                                                                   # 2 = flip along y &amp; z,
                                                                                   # 3 = flip along x &amp; z
@@ -378,27 +468,36 @@ class ShapeAnalysisModulePipeline():
                                                                                   # 6 = flip along x &amp; y &amp; z,
                                                                                   # 7 = flip along z  where y is the smallest, x is the second smallest and z is the long axis of the ellipsoid
 
-      cli_output = list()
-      cli_outputFilepath = list()
-
-      self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters, cli_output, cli_outputFilepath, False)
+      self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters)
 
   def runCLI(self):
     print "Call of the CLI: " + self.slicerModule[self.ID].name
     slicer.cli.run(self.slicerModule[self.ID], None, self.moduleParameters[self.ID], wait_for_completion=True)
 
-  def saveOutputs(self):
-    cli_output = self.output[self.ID]
-    cli_outputFilepath = self.outputFilepath[self.ID]
-    for i in range(0, len(cli_output)):
-      slicer.util.saveNode(cli_output[i], cli_outputFilepath[i])
+  def saveNodes(self):
+    for id in self.nodeDictionary.keys():
+      for i in range(len(self.nodeDictionary[id].save)):
+        save = self.nodeDictionary[id].save
+        node = self.nodeDictionary[id].nodes
+        filepaths = self.nodeDictionary[id].filepaths
+        if save[i] == True:
+          ShapeAnalysisModuleMRMLUtility.saveMRMLNode( node[i], filepaths[i] )
+
+  def deleteNodes(self):
+    for id in self.nodeDictionary.keys():
+      for i in range(len(self.nodeDictionary[id].save)):
+        delete = self.nodeDictionary[id].delete
+        node = self.nodeDictionary[id].nodes
+        filepaths = self.nodeDictionary[id].filepaths
+        if delete[i] == True:
+          ShapeAnalysisModuleMRMLUtility.removeMRMLNode( node[i] )
 
   def runCLIModules(self):
     for ID in self.slicerModule.keys():
       self.ID = ID
       self.runCLI()
-      if self.saveOutput[self.ID]:
-        self.saveOutputs()
+    self.saveNodes()
+    self.deleteNodes()
 
 class ShapeAnalysisModuleTest(ScriptedLoadableModuleTest):
   """
