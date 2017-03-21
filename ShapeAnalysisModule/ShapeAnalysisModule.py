@@ -305,11 +305,14 @@ class ShapeAnalysisModulePipeline():
     return True
 
   # Check if the CLI ParaToSPHARMMesh need to be called
-  def callParaToSPHARMMesh(self, SPHARMMeshOutputDirectory):
+  def callParaToSPHARMMesh(self, SPHARMMeshFilepath):
+    SPHARMMeshDirectory = os.path.dirname(SPHARMMeshFilepath)
+    SPHARMMeshBasename = os.path.basename(SPHARMMeshFilepath)
     if not self.interface.OverwriteParaToSPHARMMesh.checkState():
-      if os.path.exists(SPHARMMeshOutputDirectory):
-        if os.listdir(SPHARMMeshOutputDirectory):
-          return False
+      if os.path.exists(SPHARMMeshDirectory):
+        for file in os.listdir(SPHARMMeshDirectory):
+          if not file.find(SPHARMMeshBasename) == -1:
+            return False
     return True
 
   def setup(self):
@@ -433,8 +436,8 @@ class ShapeAnalysisModulePipeline():
 
     ##  Parameters to SPHARM Mesh
     SPHARMMeshOutputDirectory = outputDirectory + "/SPHARMMesh"
-
-    if self.callParaToSPHARMMesh(SPHARMMeshOutputDirectory):
+    SPHARMMeshFilepath = SPHARMMeshOutputDirectory + "/" + os.path.splitext(self.inputBasename)[0]
+    if self.callParaToSPHARMMesh(SPHARMMeshFilepath):
 
       # Setup of the parameters od the CLI
       self.ID += 1
@@ -448,7 +451,7 @@ class ShapeAnalysisModulePipeline():
       #    Creation of a folder in the output folder : SPHARMMesh
       if not os.path.exists(SPHARMMeshOutputDirectory):
         os.makedirs(SPHARMMeshOutputDirectory)
-      cli_parameters["outbase"] = SPHARMMeshOutputDirectory + "/" + os.path.splitext(self.inputBasename)[0]
+      cli_parameters["outbase"] = SPHARMMeshFilepath
 
       cli_parameters["subdivLevel"] = self.interface.SubdivLevelValue.value
       cli_parameters["spharmDegree"] = self.interface.SPHARMDegreeValue.value
