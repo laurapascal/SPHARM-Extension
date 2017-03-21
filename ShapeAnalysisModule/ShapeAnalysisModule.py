@@ -122,6 +122,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     #   Advanced Parameters to SPHARM Mesh
     #   Flip Options
     self.callSPV.connect('clicked(bool)', self.onPreviewFlips)
+    self.runParaToSPHARMMesh.connect('clicked(bool)', self.onChangeFlips)
     #   Visualization
     #   Apply CLIs
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -184,6 +185,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   #   Apply CLIs
   #
   def onApplyButton(self):
+    self.logic.changeFlip = False
     self.logic.ShapeAnalysisCases()
     self.logic.fillTableForFlipOptions(self.tableWidget_ChoiceOfFlip)
     print " End of pgm! "
@@ -202,6 +204,11 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     launcherSPV = slicer.modules.launcher
     slicer.cli.run(launcherSPV, None, parameters, wait_for_completion=True)
 
+  def onChangeFlips(self):
+    self.logic.changeFlip = True
+    self.logic.ShapeAnalysisCases()
+    print " End of pgm! "
+
 #
 # ShapeAnalysisModuleLogic
 #
@@ -219,6 +226,7 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
     self.interface = interface
     self.pipeline = {}
     self.inputBasenameList = list()
+    self.changeFlip = False
 
 
   def startShapeAnalysisModulePipeline(self, id):
@@ -228,6 +236,7 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
   def ShapeAnalysisCases(self):
 
     self.inputBasenameList = list()
+    self.pipeline = {}
 
     # Search cases
     inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
@@ -244,7 +253,7 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
     else:
       # Init
       for i in range(len(self.inputBasenameList)):
-        self.pipeline[i] = ShapeAnalysisModulePipeline(i, self.inputBasenameList[i], self.interface)
+        self.pipeline[i] = ShapeAnalysisModulePipeline(i, self.inputBasenameList[i], self.changeFlip, self.interface)
 
       # Launch workflow
       for i in range(len(self.inputBasenameList)):
@@ -352,10 +361,11 @@ class ShapeAnalysisModuleNode(object):
 # ShapeAnalysisModulePipeline
 #
 class ShapeAnalysisModulePipeline():
-  def __init__(self, pipeline_id, inputBasename, interface):
+  def __init__(self, pipeline_id, inputBasename, changeFlip, interface):
     self.pipeline_id = pipeline_id
     self.interface = interface
     self.inputBasename = inputBasename
+    self.changeFlip = changeFlip
 
   def setupGlobalVariables(self):
     # Modules
@@ -382,14 +392,14 @@ class ShapeAnalysisModulePipeline():
 
   # Check if the CLI SegPostProcess need to be called
   def callSegPostProcess(self, PostProcessOutputFilepath):
-    if not self.interface.OverwriteSegPostProcess.checkState():
+    if not self.interface.OverwriteSegPostProcess.checkState() or self.changeFlip:
       if os.path.exists(PostProcessOutputFilepath):
         return False
     return True
 
   # Check if the CLI GenParaMesh need to be called
   def callGenParaMesh(self, ParaOutputFilepath, SurfOutputFilepath):
-    if not self.interface.OverwriteGenParaMesh.checkState():
+    if not self.interface.OverwriteGenParaMesh.checkState() or self.changeFlip:
       if os.path.exists(ParaOutputFilepath) and os.path.exists(SurfOutputFilepath):
         return False
     return True
@@ -398,7 +408,7 @@ class ShapeAnalysisModulePipeline():
   def callParaToSPHARMMesh(self, SPHARMMeshFilepath):
     SPHARMMeshDirectory = os.path.dirname(SPHARMMeshFilepath)
     SPHARMMeshBasename = os.path.basename(SPHARMMeshFilepath)
-    if not self.interface.OverwriteParaToSPHARMMesh.checkState():
+    if not self.interface.OverwriteParaToSPHARMMesh.checkState() and not self.changeFlip:
       if os.path.exists(SPHARMMeshDirectory):
         for file in os.listdir(SPHARMMeshDirectory):
           if not file.find(SPHARMMeshBasename) == -1:
@@ -553,13 +563,22 @@ class ShapeAnalysisModulePipeline():
         cli_parameters["debug"] = True
 
       #   Advanced parameters
-      cli_parameters["finalFlipIndex"] = self.interface.choiceOfFlip.currentIndex # 1 = flip along axes of x &amp; y,
-                                                                                  # 2 = flip along y &amp; z,
-                                                                                  # 3 = flip along x &amp; z
-                                                                                  # 4 = flip along x,
-                                                                                  # 5 = flip along y,
-                                                                                  # 6 = flip along x &amp; y &amp; z,
-                                                                                  # 7 = flip along z  where y is the smallest, x is the second smallest and z is the long axis of the ellipsoid
+      if not self.changeFlip:
+        cli_parameters["finalFlipIndex"] = self.interface.choiceOfFlip.currentIndex # 1 = flip along axes of x &amp; y,
+                                                                                    # 2 = flip along y &amp; z,
+                                                                                    # 3 = flip along x &amp; z
+                                                                                    # 4 = flip along x,
+                                                                                    # 5 = flip along y,
+                                                                                    # 6 = flip along x &amp; y &amp; z,
+                                                                                    # 7 = flip along z  where y is the smallest, x is the second smallest and z is the long axis of the ellipsoid
+      else:
+        # Recovery of the flip choisen by the user
+        row = self.pipeline_id
+        widget = self.interface.tableWidget_ChoiceOfFlip.cellWidget(row, 1)
+        tuple = widget.children()
+        comboBox = qt.QComboBox()
+        comboBox = tuple[1]
+        cli_parameters["finalFlipIndex"] = comboBox.currentIndex
 
       self.setupModule(slicer.modules.paratospharmmeshclp, cli_parameters)
 
