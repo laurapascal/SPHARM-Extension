@@ -272,9 +272,6 @@ class ShapeAnalysisModulePipeline():
     self.ID = -1
     self.slicerModule = {}
     self.moduleParameters = {}
-    self.output = {}
-    self.outputFilepath = {}
-    self.saveOutput = {}
 
     # Nodes
     self.nodeDictionary = {}
@@ -283,12 +280,12 @@ class ShapeAnalysisModulePipeline():
     self.slicerModule[self.ID] = module
     self.moduleParameters[self.ID] = cli_parameters
 
-  def setupNode(self, cli_nodes, cli_filepaths, cli_saveOutput, cli_deleteOutput):
-    self.nodeDictionary[self.ID] = ShapeAnalysisModuleNode()
-    self.nodeDictionary[self.ID].nodes = cli_nodes
-    self.nodeDictionary[self.ID].filepaths = cli_filepaths
-    self.nodeDictionary[self.ID].save = cli_saveOutput
-    self.nodeDictionary[self.ID].delete = cli_deleteOutput
+  def setupNode(self, id, cli_nodes, cli_filepaths, cli_saveOutput, cli_deleteOutput):
+    self.nodeDictionary[id] = ShapeAnalysisModuleNode()
+    self.nodeDictionary[id].nodes = cli_nodes
+    self.nodeDictionary[id].filepaths = cli_filepaths
+    self.nodeDictionary[id].save = cli_saveOutput
+    self.nodeDictionary[id].delete = cli_deleteOutput
 
   # Check if the CLI SegPostProcess need to be called
   def callSegPostProcess(self, PostProcessOutputFilepath):
@@ -366,7 +363,7 @@ class ShapeAnalysisModulePipeline():
       cli_filepaths.append(inputFilepath)
       cli_filepaths.append(PostProcessOutputFilepath)
 
-      self.setupNode(cli_nodes, cli_filepaths, [False,True], [True,True])
+      self.setupNode(1, cli_nodes, cli_filepaths, [False,True], [True,True])
 
     else:
       # Setup of the nodes which will be use by the next CLI
@@ -375,7 +372,7 @@ class ShapeAnalysisModulePipeline():
       cli_filepaths.append(PostProcessOutputFilepath)
       cli_nodes.append(pp_output_node)
 
-      self.setupNode(cli_nodes, cli_filepaths, [False], [True])
+      self.setupNode(1, cli_nodes, cli_filepaths, [False], [True])
 
 
     ## Generate Mesh Parameters
@@ -418,7 +415,7 @@ class ShapeAnalysisModulePipeline():
       cli_filepaths.append(ParaOutputFilepath)
       cli_filepaths.append(SurfOutputFilepath)
 
-      self.setupNode(cli_nodes, cli_filepaths, [True,True], [True,True])
+      self.setupNode(2, cli_nodes, cli_filepaths, [True,True], [True,True])
 
 
     else:
@@ -431,7 +428,7 @@ class ShapeAnalysisModulePipeline():
       cli_filepaths.append(ParaOutputFilepath)
       cli_filepaths.append(SurfOutputFilepath)
 
-      self.setupNode(cli_nodes, cli_filepaths, [False, False], [True, True])
+      self.setupNode(2, cli_nodes, cli_filepaths, [False, False], [True, True])
 
 
     ##  Parameters to SPHARM Mesh
