@@ -101,6 +101,10 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.MTemplate = self.getWidget('checkBox_MTemplate')
     self.ParaOut1Template = self.getWidget('checkBox_ParaOut1Template')
     self.choiceOfFlip = self.getWidget('comboBox_choiceOfFlip')
+    #   Flip Options
+    self.tableWidget_ChoiceOfFlip = self.getWidget('tableWidget_ChoiceOfFlip')
+    self.runParaToSPHARMMesh = self.getWidget('pushButton_runParaToSPHARMMesh')
+    self.callSPV = self.getWidget('pushButton_callSPV')
     #   Visualization
     #   Apply CLIs
     self.applyButton = self.getWidget('applyButton')
@@ -119,6 +123,16 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     #   Apply CLIs
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
+    # Widget Configuration
+    #     configuration of the table for the Flip Options
+    self.tableWidget_ChoiceOfFlip.setColumnCount(2)
+    self.tableWidget_ChoiceOfFlip.setHorizontalHeaderLabels([' Files ', ' Choice of Flip '])
+    self.tableWidget_ChoiceOfFlip.setColumnWidth(0, 200)
+    horizontalHeader = self.tableWidget_ChoiceOfFlip.horizontalHeader()
+    horizontalHeader.setStretchLastSection(False)
+    horizontalHeader.setResizeMode(0, qt.QHeaderView.Stretch)
+    horizontalHeader.setResizeMode(1, qt.QHeaderView.ResizeToContents)
+    self.tableWidget_ChoiceOfFlip.verticalHeader().setVisible(False)
 
   def cleanup(self):
     pass
