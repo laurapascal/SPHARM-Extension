@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1223</width>
-    <height>1014</height>
+    <height>1199</height>
    </rect>
   </property>
   <property name="acceptDrops">
@@ -797,9 +797,44 @@
     </widget>
    </item>
    <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_FlipOptions">
+     <property name="text">
+      <string>Flip Options</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QTableWidget" name="tableWidget_ChoiceOfFlip"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_runParaToSPHARMMesh">
+        <property name="text">
+         <string>Run </string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_callSPV">
+        <property name="text">
+         <string>Shape Population Viewer</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkCollapsibleButton" name="CollapsibleButton_Visualization">
      <property name="text">
       <string>Visualization</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
      </property>
      <property name="contentsFrameShape">
       <enum>QFrame::StyledPanel</enum>
