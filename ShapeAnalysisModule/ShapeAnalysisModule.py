@@ -127,7 +127,7 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     #     configuration of the table for the Flip Options
     self.tableWidget_ChoiceOfFlip.setColumnCount(2)
     self.tableWidget_ChoiceOfFlip.setHorizontalHeaderLabels([' Files ', ' Choice of Flip '])
-    self.tableWidget_ChoiceOfFlip.setColumnWidth(0, 200)
+    self.tableWidget_ChoiceOfFlip.setColumnWidth(0, 400)
     horizontalHeader = self.tableWidget_ChoiceOfFlip.horizontalHeader()
     horizontalHeader.setStretchLastSection(False)
     horizontalHeader.setResizeMode(0, qt.QHeaderView.Stretch)
@@ -182,6 +182,8 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   #
   def onApplyButton(self):
     self.logic.ShapeAnalysisCases()
+    self.logic.fillTableForFlipOptions(self.tableWidget_ChoiceOfFlip)
+
     print " End of pgm! "
 
 #
@@ -200,34 +202,77 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
   def __init__(self, interface):
     self.interface = interface
     self.pipeline = {}
+    self.inputBasenameList = list()
+
 
   def startShapeAnalysisModulePipeline(self, id):
     self.pipeline[id].setup()
     self.pipeline[id].runCLIModules()
 
   def ShapeAnalysisCases(self):
+
+    self.inputBasenameList = list()
+
     # Search cases
     inputDirectory = self.interface.GroupProjectInputDirectory.directory.encode('utf-8')
-    inputBasenameList = list()
     for file in os.listdir(inputDirectory):
       if file.endswith(".gipl") or file.endswith(".gipl.gz"):
-        inputBasenameList.append(file)
+        self.inputBasenameList.append(file)
 
     # No cases
-    if not len(inputBasenameList) > 0:
+    if not len(self.inputBasenameList) > 0:
       slicer.util.errorDisplay("No cases found in " + inputDirectory)
       return -1
 
     # Create pipelines
     else:
       # Init
-      for i in range(len(inputBasenameList)):
-        self.pipeline[i] = ShapeAnalysisModulePipeline(i, inputBasenameList[i], self.interface)
+      for i in range(len(self.inputBasenameList)):
+        self.pipeline[i] = ShapeAnalysisModulePipeline(i, self.inputBasenameList[i], self.interface)
 
       # Launch workflow
-      for i in range(len(inputBasenameList)):
+      for i in range(len(self.inputBasenameList)):
         self.startShapeAnalysisModulePipeline(i)
       return 0
+
+  # Function to fill the table of the flip options for all the SPHARM mesh output
+  #    - Column 0: filename of the SPHARM mesh output vtk file
+  #    - Column 1: combobox with the flip corresponding to the output file
+  def fillTableForFlipOptions(self, table):
+    row = 0
+
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    SPHARMMeshOutputDirectory = outputDirectory + "/SPHARMMesh/"
+    for basename in self.inputBasenameList:
+      filepath = SPHARMMeshOutputDirectory + os.path.splitext(basename)[0] + "SPHARM.vtk"
+      if os.path.exists(filepath):
+        table.setRowCount(row + 1)
+        # Column 0:
+        filename = os.path.splitext(os.path.basename(filepath))[0]
+        labelVTKFile = qt.QLabel(filename)
+        labelVTKFile.setAlignment(0x84)
+        table.setCellWidget(row, 0, labelVTKFile)
+
+        # Column 1:
+        widget = qt.QWidget()
+        layout = qt.QHBoxLayout(widget)
+        comboBox = qt.QComboBox()
+        comboBox.addItems(['No Flip',
+                           'Flip Along Axis of x and y',
+                           'Flip Along Axis of y and z',
+                           'Flip Along Axis of x and z',
+                           'Flip Along Axis of x',
+                           'Flip Along Axis of y',
+                           'Flip Along Axis of x, y and z',
+                           'Flip Along Axis of z'])
+        comboBox.setCurrentIndex(self.interface.choiceOfFlip.currentIndex)
+        layout.addWidget(comboBox)
+        layout.setAlignment(0x84)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget.setLayout(layout)
+        table.setCellWidget(row, 1, widget)
+
+        row = row + 1
 
 #
 # ShapeAnalysisModuleMRMLUtility
