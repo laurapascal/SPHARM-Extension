@@ -3,6 +3,7 @@ import unittest
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
+import csv
 
 #
 # ShapeAnalysisModule
@@ -119,6 +120,8 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     #   Advanced Post Processed Segmentation
     self.GaussianFiltering.connect('clicked(bool)', self.onSelectGaussianVariance)
     #   Advanced Parameters to SPHARM Mesh
+    #   Flip Options
+    self.callSPV.connect('clicked(bool)', self.onPreviewFlips)
     #   Visualization
     #   Apply CLIs
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -183,8 +186,21 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     self.logic.ShapeAnalysisCases()
     self.logic.fillTableForFlipOptions(self.tableWidget_ChoiceOfFlip)
-
     print " End of pgm! "
+
+  #
+  #   Flip Options
+  #
+  def onPreviewFlips(self):
+    # Creation of a CSV file to load the vtk files in ShapePopulationViewer
+    filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewFlips.csv'
+    self.logic.creationCSVFileForSPV(filePathCSV)
+
+    # Launch the CLI ShapePopulationViewer
+    parameters = {}
+    parameters["CSVFile"] = filePathCSV
+    launcherSPV = slicer.modules.launcher
+    slicer.cli.run(launcherSPV, None, parameters, wait_for_completion=True)
 
 #
 # ShapeAnalysisModuleLogic
@@ -273,6 +289,21 @@ class ShapeAnalysisModuleLogic(ScriptedLoadableModuleLogic):
         table.setCellWidget(row, 1, widget)
 
         row = row + 1
+
+  # Function to create a CSV file containing all the SPHARM mesh output files
+  # that the user wants to display in ShapePopultaionViewer in order to check the flip
+  def creationCSVFileForSPV(self, filepathCVS):
+    # Creation a CSV file with a header 'VTK Files'
+    file = open(filepathCVS, 'w')
+    cw = csv.writer(file, delimiter=',')
+    cw.writerow(['VTK Files'])
+    # Add the path of the SPHARM mesh output files
+    outputDirectory = self.interface.GroupProjectOutputDirectory.directory.encode('utf-8')
+    SPHARMMeshOutputDirectory = outputDirectory + "/SPHARMMesh/"
+    for basename in self.inputBasenameList:
+      filepath = SPHARMMeshOutputDirectory + os.path.splitext(basename)[0] + "SPHARM.vtk"
+      if os.path.exists(filepath):
+        cw.writerow([filepath])
 
 #
 # ShapeAnalysisModuleMRMLUtility
