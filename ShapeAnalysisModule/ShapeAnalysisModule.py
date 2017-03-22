@@ -104,8 +104,8 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.choiceOfFlip = self.getWidget('comboBox_choiceOfFlip')
     #   Flip Options
     self.tableWidget_ChoiceOfFlip = self.getWidget('tableWidget_ChoiceOfFlip')
-    self.runParaToSPHARMMesh = self.getWidget('pushButton_runParaToSPHARMMesh')
-    self.callSPV = self.getWidget('pushButton_callSPV')
+    self.changeFlips = self.getWidget('pushButton_changeFlips')
+    self.visualizationOfFlipInSPV = self.getWidget('pushButton_visualizationOfFlipInSPV')
     #   Visualization
     #   Apply CLIs
     self.applyButton = self.getWidget('applyButton')
@@ -121,8 +121,8 @@ class ShapeAnalysisModuleWidget(ScriptedLoadableModuleWidget):
     self.GaussianFiltering.connect('clicked(bool)', self.onSelectGaussianVariance)
     #   Advanced Parameters to SPHARM Mesh
     #   Flip Options
-    self.callSPV.connect('clicked(bool)', self.onPreviewFlips)
-    self.runParaToSPHARMMesh.connect('clicked(bool)', self.onChangeFlips)
+    self.changeFlips.connect('clicked(bool)', self.onChangeFlips)
+    self.visualizationOfFlipInSPV.connect('clicked(bool)', self.onPreviewFlips)
     #   Visualization
     #   Apply CLIs
     self.applyButton.connect('clicked(bool)', self.onApplyButton)

@@ -797,6 +797,13 @@
     </widget>
    </item>
    <item>
+    <widget class="QPushButton" name="applyButton">
+     <property name="text">
+      <string>Apply</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkCollapsibleButton" name="CollapsibleButton_FlipOptions">
      <property name="text">
       <string>Flip Options</string>
@@ -812,14 +819,14 @@
        <widget class="QTableWidget" name="tableWidget_ChoiceOfFlip"/>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_runParaToSPHARMMesh">
+       <widget class="QPushButton" name="pushButton_changeFlips">
         <property name="text">
-         <string>Run </string>
+         <string>Change Flips</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_callSPV">
+       <widget class="QPushButton" name="pushButton_visualizationOfFlipInSPV">
         <property name="text">
          <string>Shape Population Viewer</string>
         </property>
@@ -838,13 +845,6 @@
      </property>
      <property name="contentsFrameShape">
       <enum>QFrame::StyledPanel</enum>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="applyButton">
-     <property name="text">
-      <string>Apply</string>
      </property>
     </widget>
    </item>
